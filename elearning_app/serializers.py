@@ -142,18 +142,14 @@ class UserLogoutSerializer(serializers.Serializer):
         BlacklistedToken.objects.create(token=access_token)
         
 class UserDetailsSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = User
-        fields = '__all__'
-        
+        fields = ['email', 'created_at', 'updated_at']
+        depth=1    
 class ClassDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassDetails
-        fields = '__all__'
-
-class CourseDetailsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CourseDetails
         fields = '__all__'
 
 class CourseSectionSerializer(serializers.ModelSerializer):
@@ -181,3 +177,26 @@ class CourseRatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseRating
         fields = '__all__'
+
+
+class CourseDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseDetails
+        fields = ['title']
+
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    user = UserDetailsSerializer() 
+    course_title = CourseDetailsSerializer(source='course')  # Nested serializer for the course field
+
+    class Meta:
+        model = Attendance
+        fields = ['user_id', 'user', 'status', 'course_title']
+
+    def create(self, validate_data):
+        validate_data['user'] = self.context['request'].user
+        print(validate_data['user'])
+        return super().create(validate_data)
+   
+
+        

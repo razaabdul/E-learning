@@ -8,7 +8,7 @@ from .serializers import *
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
+# from datetime import datetime, t
 from rest_framework.decorators import permission_classes,action
 import random
 from datetime import timedelta
@@ -23,6 +23,7 @@ from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password
 from rest_framework.exceptions import APIException, NotFound
 import string
+from datetime import date,datetime
 from .permissions import IsSchoolAdmin
 
 
@@ -379,6 +380,10 @@ class OverallRatingView(viewsets.ModelViewSet):
 
 
 class PostCourseReview(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = CourseSubSection.objects.all()
+    serializer_class = CourseSubSectionSerializer
+
     def create(self, request):
         data = request.data.copy()
         data["user"] = request.user.id
@@ -390,3 +395,58 @@ class PostCourseReview(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class mark_attendance(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Attendance.objects.all()
+    serializer_class = AttendanceSerializer
+
+    @action(detail=False, methods=['post','put'], url_path="mark")
+    def mark(self, request):    
+        user_id = request.data.get('user_id')
+        course_id = request.data.get('course_id')
+        attendance_status = request.data.get('status')  # Default status is 'present'
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            course = CourseDetails.objects.get(id=course_id)
+        except CourseDetails.DoesNotExist:
+            return Response({'detail': 'Course not found'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        date_today = date.today()
+
+        if 'date_time' in request.data:
+            try:
+                date_time_obj = datetime.strptime(request.data['date_time'], '%Y-%m-%d') # Adjust format if needed
+                date_request = date_time_obj.date()
+
+                if date_request > date_today:
+                    return Response({'detail': 'Cannot update status for future dates'},status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({'detail': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)    
+                                    
+        attendance_qs = Attendance.objects.filter(
+            user=user,
+            course=course,
+            date_time__date=date_today
+        )
+        if attendance_qs.exists():
+            attendance = attendance_qs.first()
+            if user.user_type =='admin':
+                attendance.status = attendance_status
+                attendance.save()
+            else:
+                attendance_status = attendance.status
+        else:
+            attendance = Attendance.objects.create(
+                user=user,
+                course=course,
+                date_time=timezone.now(),
+                status=attendance_status
+            )
+
+        serializer = AttendanceSerializer(attendance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        

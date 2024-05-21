@@ -121,9 +121,9 @@ class User(AbstractUser, DateTimeMixin):
     user_type = models.CharField(
         max_length=8,
         blank=True,
-        null=True,
+        null=False,
         choices=USER_TYPE,
-        verbose_name=_("Employee Type"),
+        verbose_name=_("User Type"),
     )
     employee_type = models.CharField(
         max_length=10,
@@ -240,7 +240,7 @@ class CourseSubSection(DateTimeMixin):
         max_length=250, verbose_name=_("SubSection Name"), blank=True, null=True
     )
     course_section = models.ForeignKey(
-        CourseSection,
+        CourseSection,  
         on_delete=models.CASCADE,
         verbose_name=_("Course Section"),
         blank=True,
@@ -339,3 +339,20 @@ class BlacklistedToken(DateTimeMixin):
 
     def __str__(self):
         return self.token
+
+
+class Attendance(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='attendance_records') 
+    course = models.ForeignKey(CourseDetails, on_delete=models.CASCADE)
+
+    date_time = models.DateTimeField(auto_now=True)
+      # Corrected line
+    STATUS_CHOICES = [
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+
+    class Meta:
+        unique_together = ('user', 'date_time')
+            
